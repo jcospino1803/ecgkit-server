@@ -1,0 +1,214 @@
+<!-- views/ecg.handlebars -->
+<script>
+    var dataset;
+    var sampleCount;
+    var timestamp_ms;
+    var sampleInterval_ms;
+    var auth;
+    
+    // These values aren't used yet, as I am still looking for information about the
+    // voltage scale gain/calibration of the Olimex ECG Shield.
+    var scale = 4.0;    // pixels per division; 0.1 mV vertical, 0.04 sec / horizontal
+    var hScale = 0.001; // volts per division (vertical scale)
+    var vScale = 40.0;  // ms per division (horizontal scale)
+
+    function YCoord(y) {
+        var yScale = 300/1024; // aiming for 0.1mV / division
+        var yOrigin = 50;
+        return yOrigin + 0.15 * y;
+    }
+
+    function drawGrid(ctx, pass, w, height) {
+        var scale = w / (10.0 * 25.0);
+        var jTop = (w/ scale) + 1;
+        var iTop = (height / scale) + 1;
+        for (var h=0;h<jTop;h++) {
+
+            for (var i=0;i<iTop;i++){
+                if (pass == 1 && (i % 5) == 0 ) {
+                    ctx.lineWidth = 1;
+                    ctx.strokeStyle = "#cd7373";
+                    ctx.beginPath();
+                    ctx.moveTo(h*scale-0.5,i*scale+0.5);
+                    ctx.lineTo(h*scale-scale - .5,i*scale+0.5);
+                    ctx.stroke();
+                }
+                else if (pass == 0) {
+                    ctx.lineWidth = 1;
+                    ctx.strokeStyle = "#edcdcd";
+                    ctx.beginPath();
+                    ctx.moveTo(h*scale-0.5,i*scale+0.5);
+                    ctx.lineTo(h*scale-scale - .5,i*scale+0.5);
+                    ctx.stroke();
+                }
+
+            }
+            if (pass == 1 && (h % 5) == 0 ) {
+                ctx.lineWidth = 1;
+                ctx.strokeStyle = "#cd7373";
+                ctx.beginPath();
+                ctx.moveTo(scale*h-0.5,0);
+                ctx.lineTo(scale*h-0.5,height);
+                ctx.stroke();
+            }
+            else if (pass == 0) {
+                ctx.lineWidth = 1;
+                ctx.strokeStyle = "#edcdcd";
+                ctx.beginPath();
+                ctx.moveTo(scale*h-0.5,0);
+                ctx.lineTo(scale*h-0.5,height);
+                ctx.stroke();
+            }
+        }
+    }
+
+    function drawBackground(){
+        var canvasBackground = document.getElementById('monitorBackground');
+        if (canvasBackground.getContext){
+            var ctx = canvasBackground.getContext('2d');
+            ctx.clearRect(0, 0, canvasBackground.offsetWidth, canvasBackground.offsetHeight);
+            for (var pass=0; pass<2; ++pass) {
+                drawGrid (ctx, pass, canvasBackground.offsetWidth, canvasBackground.offsetHeight);
+            }
+        }
+    }
+
+    function plotBlock(n) {
+
+        // samples in this block to be plotted
+        var samples = 0;
+        // first sample in the plotted block
+        var blockBase = 0;
+        if (sampleCount * sampleInterval_ms <= 10000.0 ) {
+            samples = sampleCount;
+        }
+        else {
+            samples = 10000.0 / sampleInterval_ms;
+        }
+
+        // plot data
+        var canvasBackground = document.getElementById('monitorBackground');
+        // plot the n-th ten second block
+        var width_px = canvasBackground.offsetWidth;
+        var lineClr = "#222";
+        if (canvasBackground.getContext) {
+            var ctx = canvasBackground.getContext('2d');
+
+            ctx.strokeStyle = lineClr;
+
+            var time_px = 0;
+            var tick_px = width_px / (10000.0 / sampleInterval_ms); // sample interval in pixels
+
+            ctx.beginPath();
+            ctx.moveTo(time_px,YCoord(dataset[0]));
+            for (var i=0; i<samples; ++i) {
+                time_px += tick_px;
+                ctx.lineTo(time_px,YCoord(dataset[i]));
+            }
+            ctx.stroke();
+        }
+    }
+
+    function getSamples(id) {
+        var jqxhr = $.get( "/api/samples/"+id)
+        .done(function(body) {
+            sampleCount = body.sampleCount;
+            dataset = new Uint16Array(sampleCount);
+            timestamp_ms = body.timestamp;
+            sampleInterval_ms = (body.endTimestamp - timestamp_ms) / (sampleCount-1);
+            var src = body.samples.data; 
+            var j = 0;
+            for(var i=0; i<sampleCount; ++i) {
+                // big-endian bytes to Number
+                dataset[i] = ((src[j] & 0xff) << 8) | (src[j+1] & 0xff);
+                j += 2;
+            }
+            drawBackground();
+            // plot first ten seconds of data
+            plotBlock(0);
+        })
+        .fail(function(err) {
+            alert( "Something went wrong. We're unable to retrieve the desired ECG" );
+        });
+    }
+    requirejs.config({
+        baseUrl: '/components',
+         shim : {
+            "bootstrap" : { "deps" :['jquery'] }
+        },
+        paths: {
+            //assets: '../examples/assets',
+            //dist: '../dist',
+
+            'jquery': 'jquery/dist/jquery',
+            'bootstrap': 'bootstrap/dist/js/bootstrap',
+            'jquery-oauth': 'jquery-oauth/dist/jquery.oauth',
+            'store': 'store-js/store'
+        }
+    });
+
+    requirejs(['jquery-oauth'], function(jqOAuth){
+        auth = new jqOAuth({
+            events: {
+               logout: function(){},
+               login:  function(){},
+               tokenExpiration: function(){}
+            }
+        });
+        
+        getSamples("da38eb30-402b-4fe7-b3b5-79d6c99848cf");
+                              
+    });
+    
+    requirejs(['jquery','jquery-oauth','bootstrap'], function(){
+        
+        function populateDatasetDropdown() {
+            var jqxhr = $.get( "/api/samples")
+            .done(function(body) {
+                var list = document.getElementById("datasetDropdown");
+                // remove existing children
+                while (list.firstChild) {
+                    list.removeChild(list.firstChild);
+                }
+                // add results of query
+                var z = body.data;
+                for (var i = 0; i < z.length; i++){                
+                    var opt = z[i];
+                    var li = document.createElement("li");
+                    var link = document.createElement("a");             
+                    var text = document.createTextNode( opt.date + ": " + opt.datasetId);
+                    link.appendChild(text);
+                    link.href = "#";
+                    link.id = opt.datasetId;
+                    li.appendChild(link);
+                    list.appendChild(li);
+                    
+                    jQuery("#" + opt.datasetId).click(function(e){
+                        //do something
+                        e.preventDefault();
+                        getSamples(this.id);
+                    });
+                }
+            })
+            .fail(function(err) {
+                alert( "Something went wrong. We were unable to get the ECG catalog" );
+            });
+        }
+        
+        populateDatasetDropdown();
+    });
+</script>
+<div class="wrapper">
+    
+    <div class="dropdown">
+      <button class="btn btn-default dropdown-toggle" type="button" data-toggle="dropdown">
+        Select a Data Set
+        <span class="caret"></span>
+      </button>
+      <ul class="dropdown-menu" id="datasetDropdown">
+      </ul>
+    </div>
+    <div style="margin:30px auto; position: relative; border:1px solid black; height:300px; width:1600px; ">
+        <canvas class="gradient" id="monitorBackground" width="1600" height="300" style="position: absolute; left: 0; top: 0; z-index: 0;">Your browser is out of date.</canvas>
+    </div>
+</div>

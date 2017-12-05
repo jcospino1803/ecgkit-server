@@ -1,0 +1,26 @@
+{
+    "dev": {
+        "mongoConnection": "mongodb://localhost:27017/test",
+        "port": 9443,
+        "testHost": "localhost",
+        "saltSync": 10,
+        "sslKeyfile": "./ssl/privkey.pem",
+        "sslCertfile": "./ssl/fullchain.pem"
+    },
+    "test": {
+        "mongoConnection": "mongodb://localhost:27017/test",
+        "port": 9443,
+        "testHost": "localhost",
+        "saltSync": 10,
+        "sslKeyfile": "./ssl/privkey.pem",
+        "sslCertfile": "./ssl/fullchain.pem"
+    },
+    "production": {
+        "mongoConnection": "mongodb://localhost:27017/test",
+        "port": 9443,
+        "testHost": "localhost",
+        "saltSync": 10,
+        "sslKeyfile": "./ssl/privkey.pem",
+        "sslCertfile": "./ssl/fullchain.pem"
+    }
+}
