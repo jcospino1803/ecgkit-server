@@ -24,8 +24,8 @@ module.exports = {
    */
   deploy : {
     production : {
-      user : 'node',
-      host : '127.0.0.1',
+      user : 'git',
+      host : 'gitserver',
       ref  : 'origin/master',
       repo : 'git@gitserver:/opt/ecgkit.git',
       path : '/var/www/production',
