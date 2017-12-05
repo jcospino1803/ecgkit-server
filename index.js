@@ -15,30 +15,20 @@ var express = require('express'),
 
 mongoose.connect(config.mongoConnection);
 
-// function restrict(req, res, next) {
-//    if (req.session.user) {
-//        next();
-//    } 
-//    else {
-//        res.redirect('/login');
-//    }
-//}
- 
+function restrict(req, res, next) {
+    if (req.session.user) {
+        next();
+    } 
+    else {
+        res.redirect('/login');
+    }
+}
+
 var app = express();
 
 MongoStore = require('connect-mongo/es5')(session);
 
-app.use(session(
-    secret: 'ecg',
-    store: new MongoStore( {
-        url: config.mongoConnection,
-        autoRemove: 'interval',
-        autoRemoveInterval: 120     // minutes
-    }
-    ),
-    resave: true,
-    saveUninitialized: true
-}));
+app.use(session (secret: 'ecg', store: new MongoStore( { url: config.mongoConnection, autoRemove: 'interval', autoRemoveInterval: 120 } ), resave: true, saveUninitialized: true } ) );
 
 app.engine('handlebars', exphbs({defaultLayout: 'main'}));
 app.set('view engine', 'handlebars');
