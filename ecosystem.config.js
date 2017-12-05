@@ -27,7 +27,7 @@ module.exports = {
       user : 'node',
       host : '18.220.218.64',
       ref  : 'origin/master',
-      repo : 'git@gitserver:/opt/ecgkit.git',
+      repo : 'root@18.217.211.25:/opt/ecgkit.git',
       path : '/var/www/production',
       'post-deploy' : 'pm2 reload ecosystem.config.js --env production'
     },
